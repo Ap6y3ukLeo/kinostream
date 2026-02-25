@@ -142,7 +142,7 @@ MIT License — смотрите файл [LICENSE](LICENSE) для детале
 ## 🙏 Спасибо
 
 - [Kinopoisk Unofficial API](https://kinopoiskapiunofficial.tech/) — за API
-- [TMDB](https://www.themoviedb.org/) — за вдохновение
+- ReYohoho— за вдохновение
 - [React](https://react.dev/) — за отличный фреймворк
 
 ---
