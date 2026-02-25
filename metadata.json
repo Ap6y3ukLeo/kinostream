@@ -1,0 +1,5 @@
+{
+  "name": "KinoStream",
+  "description": "Поиск и просмотр фильмов онлайн через различные плееры (Alloha, Collapse и др.)",
+  "requestFramePermissions": []
+}
