@@ -146,8 +146,8 @@ export function Movie() {
 
     if (activePlayer === 'vibix' && kpId) {
       // Vibix uses API with Bearer token - embed data is loaded via useEffect
-      // Just return empty string, player is rendered via Vibix embed
-      return '';
+      // Return iframe URL as fallback if embed data is not available
+      return vibixEmbedData?.iframeUrl || '';
     }
     
     return '';
@@ -484,6 +484,15 @@ export function Movie() {
               data-episodes={media && (media.media_type === 'tv' || media.media_type === 'anime') ? selectedEpisode : undefined}
               data-design="1"
             ></ins>
+          ) : activePlayer === 'vibix' && vibixEmbedData?.iframeUrl ? (
+            <iframe
+              key={iframeKey}
+              src={vibixEmbedData.iframeUrl}
+              className="absolute inset-0 h-full w-full border-0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+              referrerPolicy="no-referrer"
+              title="Player"
+            ></iframe>
           ) : playerUrl ? (
             <iframe
               key={iframeKey}
