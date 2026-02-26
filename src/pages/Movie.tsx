@@ -1,104 +1,31 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { getMovieDetails, getKinopoiskDetails, MediaDetails, getPosterUrl, MediaType, getAllPlayerUrls } from '../services/movieService';
+import { getKinopoiskDetails, getKinopoiskSeasons, MediaDetails, getPosterUrl, MediaType, Season, getVibixPlayerUrl } from '../services/movieService';
 import { motion } from 'framer-motion';
-import { Loader2, Play, MonitorPlay, Server, Film, Globe, Tv, Sparkles, Calendar, Clock, Star, AlertCircle } from 'lucide-react';
+import { Loader2, Play, Film, Tv, Sparkles, Calendar, Clock, Star, AlertCircle } from 'lucide-react';
 import clsx from 'clsx';
 
-type PlayerType = 'kodik' | 'alloha' | 'collaps' | 'voidboost' | 'vidsrc' | 'bazon' | 'videocdn' | 'vibix';
+type PlayerType = 'vidsrc' | 'vibix';
 
 interface PlayerOption {
   id: PlayerType;
   name: string;
   icon: React.ElementType;
   description: string;
-  type: 'iframe' | 'api';
-  supportsAnime: boolean;
-  getUrl?: (m: MediaDetails, season?: number, episode?: number) => string;
 }
 
 const PLAYERS: PlayerOption[] = [
   { 
-    id: 'kodik', 
-    name: 'Kodik', 
-    icon: Globe, 
-    description: 'Kodik плеер',
-    type: 'api',
-    supportsAnime: true,
-  },
-  { 
-    id: 'alloha', 
-    name: 'Alloha', 
-    icon: Film, 
-    description: 'Alloha плеер',
-    type: 'api',
-    supportsAnime: false,
-  },
-  { 
-    id: 'collaps', 
-    name: 'Collaps', 
-    icon: Server, 
-    description: 'Collaps балансер',
-    type: 'api',
-    supportsAnime: true,
-  },
-  { 
-    id: 'bazon', 
-    name: 'Bazon', 
-    icon: Server, 
-    description: 'Bazon балансер',
-    type: 'api',
-    supportsAnime: true,
-  },
-  { 
-    id: 'videocdn', 
-    name: 'VideoCDN', 
-    icon: Server, 
-    description: 'VideoCDN балансер',
-    type: 'api',
-    supportsAnime: true,
-  },
-  { 
-    id: 'voidboost', 
-    name: 'VoidBoost', 
-    icon: Play, 
-    description: 'VoidBoost',
-    type: 'iframe',
-    supportsAnime: true,
-    getUrl: (m, season, episode) => {
-      if (m.media_type === 'tv' && season) {
-        return `https://voidboost.net/serial/${m.tmdb_id}/season/${season}/episode/${episode || 1}`;
-      }
-      return `https://voidboost.net/iframe/${m.tmdb_id}`;
-    }
-  },
-  { 
     id: 'vidsrc', 
     name: 'VidSrc', 
-    icon: MonitorPlay, 
-    description: 'Международный плеер',
-    type: 'iframe',
-    supportsAnime: true,
-    getUrl: (m, season, episode) => {
-      if (m.media_type === 'tv') {
-        return `https://vidsrc.net/embed/tv/${m.tmdb_id}?season=${season}&episode=${episode || 1}`;
-      }
-      return `https://vidsrc.net/embed/movie/${m.tmdb_id}`;
-    }
+    icon: Play, 
+    description: 'VidSrc плеер',
   },
   { 
     id: 'vibix', 
     name: 'Vibix', 
     icon: Play, 
-    description: 'Vibix плеер',
-    type: 'iframe',
-    supportsAnime: true,
-    getUrl: (m, season, episode) => {
-      if (m.media_type === 'tv' && season) {
-        return `https://vibix.tv/embed/${m.kinopoisk_id}?season=${season}&episode=${episode || 1}`;
-      }
-      return `https://vibix.tv/embed/${m.kinopoisk_id}`;
-    }
+    description: 'Vibix плеер (требуется API ключ)',
   },
 ];
 
@@ -108,24 +35,28 @@ export function Movie() {
   const mediaType = (searchParams.get('type') || 'movie') as MediaType;
   
   const [media, setMedia] = useState<MediaDetails | null>(null);
+  const [seasons, setSeasons] = useState<Season[]>([]);
   const [loading, setLoading] = useState(true);
-  const [playerUrls, setPlayerUrls] = useState<Record<string, string>>({});
-  const [loadingPlayers, setLoadingPlayers] = useState(false);
-  const [activePlayer, setActivePlayer] = useState<PlayerType>('kodik');
+  const [activePlayer, setActivePlayer] = useState<PlayerType>('vidsrc');
   const [selectedSeason, setSelectedSeason] = useState<number>(1);
   const [selectedEpisode, setSelectedEpisode] = useState<number>(1);
   const [iframeKey, setIframeKey] = useState(0);
+  const [playerUrl, setPlayerUrl] = useState<string>('');
+  const [loadingPlayer, setLoadingPlayer] = useState(false);
 
   const loadMedia = useCallback(async () => {
     if (id) {
       setLoading(true);
       try {
-        // First try Kinopoisk API (works from Russia), then fall back to TMDB
-        let data = await getKinopoiskDetails(id);
-        if (!data) {
-          data = await getMovieDetails(id);
-        }
+        const data = await getKinopoiskDetails(id);
         setMedia(data);
+        
+        // Load seasons for TV shows/anime
+        if (data && (data.media_type === 'tv' || data.media_type === 'anime')) {
+          const seasonsData = await getKinopoiskSeasons(id);
+          setSeasons(seasonsData);
+          console.log('Loaded seasons:', seasonsData);
+        }
       } catch (error) {
         console.error('Failed to load media:', error);
       } finally {
@@ -134,34 +65,81 @@ export function Movie() {
     }
   }, [id]);
 
-  // Load player URLs from APIs
-  const loadPlayerUrls = useCallback(async () => {
-    if (media) {
-      setLoadingPlayers(true);
-      try {
-        const urls = await getAllPlayerUrls(media, selectedSeason, selectedEpisode);
-        console.log('Player URLs:', urls);
-        setPlayerUrls(urls);
-      } catch (error) {
-        console.error('Failed to load player URLs:', error);
-      } finally {
-        setLoadingPlayers(false);
-      }
-    }
-  }, [media, selectedSeason, selectedEpisode]);
-
   useEffect(() => {
     loadMedia();
   }, [loadMedia]);
 
+  // Reset season/episode when media changes
   useEffect(() => {
-    loadPlayerUrls();
-  }, [loadPlayerUrls]);
+    if (media) {
+      setSelectedSeason(1);
+      setSelectedEpisode(1);
+      setIframeKey(prev => prev + 1);
+    }
+  }, [media?.id]);
 
-  const handlePlayerChange = (playerId: PlayerType) => {
-    setActivePlayer(playerId);
-    setIframeKey(prev => prev + 1);
-  };
+  const getPlayerUrl = useCallback(async (): Promise<string> => {
+    if (!media) return '';
+    
+    const imdbId = media.imdb_id;
+    const kpId = media.kinopoisk_id;
+    
+    if (activePlayer === 'vidsrc') {
+      // VidSrc uses IMDB ID, fallback to KP ID format
+      if (media.media_type === 'tv' || media.media_type === 'anime') {
+        // For TV shows, try to use season/episode
+        const idToUse = imdbId || (kpId ? `kp-${kpId}` : '');
+        if (idToUse) {
+          return `https://vidsrc.net/embed/tv/${idToUse}?season=${selectedSeason}&episode=${selectedEpisode}`;
+        }
+      } else {
+        // For movies
+        const idToUse = imdbId || (kpId ? `kp-${kpId}` : '');
+        if (idToUse) {
+          return `https://vidsrc.net/embed/movie/${idToUse}`;
+        }
+      }
+    }
+
+    if (activePlayer === 'vibix' && kpId) {
+      // Vibix uses API with Bearer token
+      try {
+        const vibixUrl = await getVibixPlayerUrl(kpId, selectedSeason, selectedEpisode);
+        if (vibixUrl) {
+          return vibixUrl;
+        }
+      } catch (error) {
+        console.error('Error getting Vibix URL:', error);
+      }
+      // Fallback to direct embed if API fails
+      if (media.media_type === 'tv' || media.media_type === 'anime') {
+        return `https://vibix.tv/embed/${kpId}?season=${selectedSeason}&episode=${selectedEpisode}`;
+      }
+      return `https://vibix.tv/embed/${kpId}`;
+    }
+    
+    return '';
+  }, [media, activePlayer, selectedSeason, selectedEpisode]);
+
+  // Load player URL when player or episode changes
+  useEffect(() => {
+    const loadPlayerUrl = async () => {
+      if (!media) return;
+      setLoadingPlayer(true);
+      try {
+        const url = await getPlayerUrl();
+        setPlayerUrl(url);
+      } catch (error) {
+        console.error('Error loading player URL:', error);
+        setPlayerUrl('');
+      } finally {
+        setLoadingPlayer(false);
+      }
+    };
+    loadPlayerUrl();
+  }, [getPlayerUrl, media, activePlayer, selectedSeason, selectedEpisode]);
+
+
 
   if (loading) {
     return (
@@ -179,21 +157,12 @@ export function Movie() {
     );
   }
 
-  // Get active player config
-  const activePlayerConfig = PLAYERS.find(p => p.id === activePlayer);
-  
-  // Get iframe URL based on player type
-  let iframeUrl = '';
-  if (activePlayerConfig?.type === 'api') {
-    iframeUrl = playerUrls[activePlayer] || '';
-  } else if (activePlayerConfig?.type === 'iframe' && activePlayerConfig.getUrl) {
-    iframeUrl = activePlayerConfig.getUrl(media, selectedSeason, selectedEpisode);
-  }
+  const isTV = media.media_type === 'tv' || media.media_type === 'anime';
 
-  // Filter players based on anime support
-  const availablePlayers = PLAYERS.filter(p => 
-    media.media_type === 'anime' ? p.supportsAnime : true
-  );
+  // Get max episodes for current season
+  const currentSeasonData = seasons.find(s => s.season_number === selectedSeason);
+  const maxEpisodes = currentSeasonData?.episode_count || 12;
+  const episodesArray = Array.from({ length: Math.max(maxEpisodes, 1) }, (_, i) => i + 1);
 
   const getMediaTypeIcon = (type: MediaType) => {
     switch (type) {
@@ -250,7 +219,7 @@ export function Movie() {
               </span>
             )}
             <span className="inline-flex items-center rounded-full bg-zinc-800 px-3 py-1 text-sm font-medium text-zinc-400 border border-zinc-700">
-              TMDB: {media.tmdb_id}
+              KP: {media.kinopoisk_id}
             </span>
             {media.imdb_id && (
               <span className="inline-flex items-center rounded-full bg-zinc-800 px-3 py-1 text-sm font-medium text-zinc-400 border border-zinc-700">
@@ -282,10 +251,10 @@ export function Movie() {
                 {media.runtime} мин
               </div>
             )}
-            {media.number_of_seasons && (
+            {seasons.length > 0 && (
               <div className="flex items-center gap-1.5">
                 <Tv className="h-4 w-4" />
-                {media.number_of_seasons} сезон(ов)
+                {seasons.length} сезон(ов)
               </div>
             )}
           </div>
@@ -314,44 +283,71 @@ export function Movie() {
             </div>
           )}
 
-          {/* Seasons/Episodes selector for TV */}
-          {(media.media_type === 'tv' || media.media_type === 'anime') && media.seasons && media.seasons.length > 0 && (
+          {/* Season/Episode selector for TV and Anime */}
+          {isTV && (
             <div className="mt-6">
-              <div className="flex flex-wrap gap-4">
+              <div className="flex flex-wrap gap-6">
                 {/* Season selector */}
                 <div>
-                  <h3 className="text-sm font-semibold text-zinc-200 mb-2">Сезон</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {media.seasons
-                      .filter(s => s.season_number > 0)
-                      .slice(0, 10)
-                      .map((season) => (
+                  <h3 className="text-sm font-semibold text-zinc-200 mb-3">Сезон</h3>
+                  <div className="flex flex-wrap gap-2 max-w-[400px]">
+                    {seasons.length > 0 ? (
+                      seasons.map((season) => (
                         <button
                           key={season.season_number}
-                          onClick={() => setSelectedSeason(season.season_number)}
+                          onClick={() => {
+                            setSelectedSeason(season.season_number);
+                            setSelectedEpisode(1);
+                            setIframeKey(prev => prev + 1);
+                          }}
                           className={clsx(
-                            "rounded-lg px-3 py-1.5 text-sm font-medium transition-all",
+                            "rounded-lg px-3 py-1.5 text-sm font-medium transition-all min-w-[50px]",
                             selectedSeason === season.season_number
                               ? "bg-indigo-600 text-white"
                               : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
                           )}
+                          title={`${season.name} (${season.episode_count} серий)`}
                         >
                           {season.season_number}
                         </button>
-                      ))}
+                      ))
+                    ) : (
+                      // Fallback if no seasons data
+                      Array.from({ length: 10 }, (_, i) => i + 1).map((season) => (
+                        <button
+                          key={season}
+                          onClick={() => {
+                            setSelectedSeason(season);
+                            setSelectedEpisode(1);
+                            setIframeKey(prev => prev + 1);
+                          }}
+                          className={clsx(
+                            "rounded-lg px-3 py-1.5 text-sm font-medium transition-all min-w-[50px]",
+                            selectedSeason === season
+                              ? "bg-indigo-600 text-white"
+                              : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
+                          )}
+                        >
+                          {season}
+                        </button>
+                      ))
+                    )}
                   </div>
                 </div>
                 
                 {/* Episode selector */}
                 <div>
-                  <h3 className="text-sm font-semibold text-zinc-200 mb-2">Серия</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {Array.from({ length: Math.min(20, media.number_of_episodes || 12) }, (_, i) => i + 1).map((ep) => (
+                  <h3 className="text-sm font-semibold text-zinc-200 mb-3">Серия</h3>
+                  <div className="flex flex-wrap gap-2 max-w-[400px]">
+                    {episodesArray.map((ep) => (
                       <button
                         key={ep}
-                        onClick={() => setSelectedEpisode(ep)}
+                        onClick={() => {
+                          setSelectedEpisode(ep);
+                          setIframeKey(prev => prev + 1);
+                        }}
                         className={clsx(
-                          "rounded-lg px-3 py-1.5 text-sm font-medium transition-all",
+                          "rounded-lg px-3 py-1.5 text-sm font-medium transition-all min-w-[50px]",
                           selectedEpisode === ep
                             ? "bg-indigo-600 text-white"
                             : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
@@ -379,7 +375,7 @@ export function Movie() {
           <div>
             <p className="text-sm font-medium text-rose-400">Аниме</p>
             <p className="text-sm text-zinc-400 mt-1">
-              Для аниме рекомендуется: Kodik, Collaps, VoidBoost
+              Выберите сезон и серию выше для просмотра.
             </p>
           </div>
         </motion.div>
@@ -387,6 +383,7 @@ export function Movie() {
 
       {/* Player Section */}
       <motion.div
+        id="player-container"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
@@ -395,17 +392,21 @@ export function Movie() {
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
             <h2 className="text-2xl font-bold">Смотреть онлайн</h2>
-            {loadingPlayers && <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />}
+            {isTV && (
+              <span className="text-sm text-zinc-400">
+                (Сезон {selectedSeason}, Серия {selectedEpisode})
+              </span>
+            )}
           </div>
           
           <div className="flex flex-wrap gap-2">
-            {availablePlayers.map((player) => {
+            {PLAYERS.map((player) => {
               const Icon = player.icon;
               const isActive = activePlayer === player.id;
               return (
                 <button
                   key={player.id}
-                  onClick={() => handlePlayerChange(player.id)}
+                  onClick={() => setActivePlayer(player.id as PlayerType)}
                   className={clsx(
                     "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all",
                     isActive
@@ -423,34 +424,34 @@ export function Movie() {
         </div>
 
         <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-zinc-800 bg-black shadow-2xl">
-          {loadingPlayers ? (
-            <div className="flex items-center justify-center h-full text-zinc-500">
-              <Loader2 className="h-8 w-8 animate-spin text-indigo-500 mr-2" />
-              Загрузка плеера...
+          {loadingPlayer ? (
+            <div className="flex flex-col items-center justify-center h-full text-zinc-500 p-4 text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-zinc-500"></div>
+              <p className="mt-2">Загрузка плеера...</p>
             </div>
-          ) : iframeUrl ? (
+          ) : playerUrl ? (
             <iframe
               key={iframeKey}
-              src={iframeUrl}
+              src={playerUrl}
               className="absolute inset-0 h-full w-full border-0"
-              allowFullScreen
-              allow="autoplay; fullscreen"
-              title={`Player ${activePlayer}`}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+              referrerPolicy="no-referrer"
+              title="Player"
             ></iframe>
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-zinc-500 p-4 text-center">
-              <p>Плеер недоступен для этого контента.</p>
-              <p className="text-sm mt-2">Попробуйте другой плеер.</p>
+              <p>Плеер недоступен.</p>
+              <p className="text-sm mt-2">Попробуйте позже.</p>
             </div>
           )}
           
           <div className="pointer-events-none absolute left-4 top-4 rounded-md bg-black/60 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-md z-10">
-            {activePlayerConfig?.name}
+            {activePlayer === 'vidsrc' ? 'VidSrc' : 'Vibix'}
           </div>
         </div>
         
         <p className="mt-4 text-center text-sm text-zinc-500">
-          Если плеер не работает, попробуйте другой вариант.
+          Если плеер не работает, попробуйте выбрать другой сезон или серию.
         </p>
       </motion.div>
     </div>

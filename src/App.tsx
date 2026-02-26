@@ -13,7 +13,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 export default function App() {
   return (
     <ErrorBoundary>
-      <BrowserRouter basename="/kinostream/">
+      <BrowserRouter>
         <Routes>
           <Route path="/" element={<Layout />}>
             <Route index element={<Home />} />

@@ -1,9 +1,9 @@
 // KinoStream API Service
-// Uses TMDB API and Kinopoisk Unofficial API
+// Uses Kinopoisk Unofficial API (works from Russia)
 
 // Kinopoisk API Configuration
 const KINOPOISK_API_BASE = 'https://kinopoiskapiunofficial.tech';
-const KINOPOISK_API_KEY = 'a926c834-5942-4c1e-88f6-54f11502e626'; // User provided token
+const KINOPOISK_API_KEY = 'a926c834-5942-4c1e-88f6-54f11502e626';
 
 // Types
 export type MediaType = 'movie' | 'tv' | 'anime';
@@ -53,28 +53,25 @@ export interface Season {
   air_date: string | null;
 }
 
-// TMDB API
-const TMDB_API_KEY = '2dca580c2a14b55200e784d157207b4d';
-const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
-const TMDB_IMAGE_BASE = 'https://image.tmdb.org/t/p';
-
-// Proxy configuration - user can set this via environment variable
-// Or use a local proxy: http://localhost:7890 (common for V2Ray/Clash)
-const PROXY_URL = import.meta.env.VITE_PROXY_URL || '';
-
 // Player API tokens
 const KODIK_TOKEN = 'b7cc4293ed475c4ad1fd599d114f4435';
 const ALLOHA_TOKEN = 'd317441359e505c343c2063edc97e7';
+const VIBIX_TOKEN = '23861|hG6BsABzO9l5GUH0Ixwi270wTybAVUJKUQhtSf6Ka33b7d87';
 const COLLAPS_TOKEN = 'eedefb541aeba871dcfc756e6b31c02e';
 const BAZON_TOKEN = '2848f79ca09d4bbbf419bcdb464b4d11';
 const VIDEOCDN_TOKEN = 'pfp3D870PGEY3Afjti0gMtSfmn2aZqih';
 
-// Get poster URL
+// Get poster URL - uses Kinopoisk CDN
 export const getPosterUrl = (path: string | null, size: 'w185' | 'w342' | 'w500' | 'w780' | 'original' = 'w500'): string => {
   if (!path) return '';
   // Handle Shikimori URLs
   if (path.startsWith('http')) return path;
-  return `${TMDB_IMAGE_BASE}/${size}${path}`;
+  // Handle relative paths - add base URL
+  if (path.startsWith('/')) {
+    return `https://kinopoiskapiunofficial.tech${path}`;
+  }
+  // Already a full URL
+  return path;
 };
 
 // Search movies, TV shows, and anime using Kinopoisk API (works from Russia)
@@ -110,7 +107,7 @@ export async function searchKinopoisk(query: string, signal?: AbortSignal): Prom
     // Transform Kinopoisk results to our Media format
     const mediaResults: Media[] = data.films.slice(0, 20).map((film: any) => ({
       id: film.filmId,
-      tmdb_id: 0, // Will be fetched later if needed
+      tmdb_id: 0,
       kinopoisk_id: film.filmId,
       imdb_id: null,
       title: film.nameRu || film.nameEn || '',
@@ -118,7 +115,7 @@ export async function searchKinopoisk(query: string, signal?: AbortSignal): Prom
       name: film.nameRu || film.nameEn || '',
       original_name: film.nameEn || film.nameOriginal || '',
       overview: film.description || '',
-      poster_path: film.posterUrl ? film.posterUrl.replace('https://kinopoiskapiunofficial.tech', '') : null,
+      poster_path: film.posterUrl || null,
       backdrop_path: null,
       release_date: film.year || '',
       first_air_date: film.year,
@@ -134,101 +131,6 @@ export async function searchKinopoisk(query: string, signal?: AbortSignal): Prom
       throw e;
     }
     console.error('Kinopoisk search error:', e);
-    return [];
-  }
-}
-
-// Search movies, TV shows, and anime (TMDB - may be blocked in Russia)
-export async function searchMulti(query: string, signal?: AbortSignal): Promise<Media[]> {
-  const trimmedQuery = query.trim();
-  if (!trimmedQuery) return [];
-
-  try {
-    const url = new URL(`${TMDB_BASE_URL}/search/multi`);
-    url.searchParams.append('api_key', TMDB_API_KEY);
-    url.searchParams.append('query', trimmedQuery);
-    url.searchParams.append('include_adult', 'false');
-    url.searchParams.append('language', 'ru-RU');
-
-    console.log('TMDB search:', url.toString());
-    const response = await fetch(url.toString(), { signal });
-    
-    if (!response.ok) {
-      throw new Error(`TMDB API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    
-    const mediaResults = data.results
-      .filter((r: any) => r.media_type === 'movie' || r.media_type === 'tv')
-      .slice(0, 20)
-      .map(transformMedia);
-
-    return mediaResults;
-  } catch (e) {
-    if (e instanceof Error && e.name === 'AbortError') {
-      throw e;
-    }
-    console.error('Search error:', e);
-    return [];
-  }
-}
-
-// Get popular movies from Kinopoisk API (works from Russia)
-export async function getKinopoiskPopular(signal?: AbortSignal): Promise<Media[]> {
-  try {
-    // Kinopoisk API has /api/v2.2/films/premieres endpoint
-    const url = new URL(`${KINOPOISK_API_BASE}/api/v2.2/films/premieres`);
-    url.searchParams.append('year', String(new Date().getFullYear()));
-    url.searchParams.append('month', '1'); // January - we'll just get any premieres
-    
-    console.log('Kinopoisk popular:', url.toString());
-    const response = await fetch(url.toString(), {
-      signal,
-      headers: {
-        'X-API-KEY': KINOPOISK_API_KEY,
-        'Content-Type': 'application/json',
-      },
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Kinopoisk API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    console.log('Kinopoisk premieres:', data);
-    
-    if (!data.items || data.items.length === 0) {
-      return [];
-    }
-
-    // Transform Kinopoisk results to our Media format
-    const mediaResults: Media[] = data.items.slice(0, 20).map((film: any) => ({
-      id: film.kinopoiskId,
-      tmdb_id: 0,
-      kinopoisk_id: film.kinopoiskId,
-      imdb_id: null,
-      title: film.nameRu || film.nameEn || '',
-      original_title: film.nameEn || '',
-      name: film.nameRu || film.nameEn || '',
-      original_name: film.nameEn || '',
-      overview: film.description || '',
-      poster_path: film.posterUrl ? film.posterUrl.replace('https://kinopoiskapiunofficial.tech', '') : null,
-      backdrop_path: null,
-      release_date: film.year || '',
-      first_air_date: film.year,
-      vote_average: film.ratingKinopoisk || 0,
-      vote_count: film.ratingKinopoiskVoteCount || 0,
-      media_type: film.type === 'SERIAL' ? 'tv' : 'movie',
-      genre_ids: [],
-    }));
-
-    return mediaResults;
-  } catch (e) {
-    if (e instanceof Error && e.name === 'AbortError') {
-      throw e;
-    }
-    console.error('Kinopoisk popular error:', e);
     return [];
   }
 }
@@ -270,8 +172,8 @@ export async function getKinopoiskDetails(id: string, signal?: AbortSignal): Pro
       name: data.nameRu || data.nameEn || '',
       original_name: data.nameOriginal || data.nameEn || '',
       overview: data.description || data.shortDescription || '',
-      poster_path: data.posterUrl ? data.posterUrl.replace('https://kinopoiskapiunofficial.tech', '') : null,
-      backdrop_path: data.coverUrl ? data.coverUrl.replace('https://avatars.mds.yandex.net', '') : null,
+      poster_path: data.posterUrl || null,
+      backdrop_path: data.coverUrl || null,
       release_date: String(data.year) || '',
       first_air_date: String(data.year),
       vote_average: data.ratingKinopoisk || 0,
@@ -296,103 +198,12 @@ export async function getKinopoiskDetails(id: string, signal?: AbortSignal): Pro
   }
 }
 
-// Get movie/TV details
-export async function getMovieDetails(id: string, signal?: AbortSignal): Promise<MediaDetails | null> {
-  if (!id) return null;
-
-  try {
-    // First try as movie
-    let url = new URL(`${TMDB_BASE_URL}/movie/${id}`);
-    url.searchParams.append('api_key', TMDB_API_KEY);
-    url.searchParams.append('language', 'ru-RU');
-
-    let response = await fetch(url.toString(), { signal });
-    
-    let data: any;
-    
-    if (response.ok) {
-      data = await response.json();
-      data.media_type = 'movie';
-    } else {
-      // Try as TV show
-      url = new URL(`${TMDB_BASE_URL}/tv/${id}`);
-      url.searchParams.append('api_key', TMDB_API_KEY);
-      url.searchParams.append('language', 'ru-RU');
-      
-      response = await fetch(url.toString(), { signal });
-      
-      if (!response.ok) {
-        throw new Error('Media not found');
-      }
-      
-      data = await response.json();
-      data.media_type = 'tv';
-    }
-
-    // Get external IDs for kinopoisk_id
-    let kinopoiskId: number | null = null;
-    try {
-      const extUrl = new URL(`${TMDB_BASE_URL}/${data.media_type}/${data.id}/external_ids`);
-      extUrl.searchParams.append('api_key', TMDB_API_KEY);
-      const extResponse = await fetch(extUrl.toString(), { signal });
-      if (extResponse.ok) {
-        const extData = await extResponse.json();
-        kinopoiskId = extData.kinopoisk_id || null;
-        console.log('External IDs:', extData);
-      }
-    } catch (e) {
-      console.error('Failed to get external IDs:', e);
-    }
-
-    return {
-      id: data.id,
-      tmdb_id: data.id,
-      imdb_id: data.imdb_id || null,
-      kinopoisk_id: kinopoiskId,
-      title: data.title || data.name || '',
-      original_title: data.original_title || data.original_name || '',
-      name: data.name,
-      original_name: data.original_name,
-      overview: data.overview || '',
-      poster_path: data.poster_path,
-      backdrop_path: data.backdrop_path,
-      release_date: data.release_date || data.first_air_date || '',
-      first_air_date: data.first_air_date,
-      vote_average: data.vote_average || 0,
-      vote_count: data.vote_count || 0,
-      media_type: data.media_type === 'tv' ? 'tv' : 'movie',
-      genre_ids: data.genres?.map((g: Genre) => g.id) || [],
-      genres: data.genres || [],
-      runtime: data.runtime || null,
-      episode_run_time: data.episode_run_time,
-      status: data.status || '',
-      tagline: data.tagline || null,
-      number_of_seasons: data.number_of_seasons || null,
-      number_of_episodes: data.number_of_episodes || null,
-      seasons: data.seasons?.map((s: any) => ({
-        season_number: s.season_number,
-        name: s.name,
-        poster_path: s.poster_path,
-        episode_count: s.episode_count,
-        air_date: s.air_date
-      })) || [],
-    };
-  } catch (e) {
-    if (e instanceof Error && e.name === 'AbortError') {
-      throw e;
-    }
-    console.error('Get details error:', e);
-    return null;
-  }
-}
-
-// Get all available player URLs
+// Get all available player URLs using Kinopoisk ID only
 export async function getAllPlayerUrls(media: MediaDetails, season?: number, episode?: number): Promise<Record<string, string>> {
   const players: Record<string, string> = {};
   
-  // Use Kinopoisk ID if available, otherwise fall back to TMDB/IMDB
+  // Use Kinopoisk ID
   const kpId = media.kinopoisk_id;
-  const tmdbId = media.tmdb_id;
   const imdbId = media.imdb_id;
   
   // Get Kodik URL
@@ -455,26 +266,53 @@ export async function getAllPlayerUrls(media: MediaDetails, season?: number, epi
     }
   }
 
-  // Add VoidBoost iframe (works with TMDB ID)
-  if (tmdbId) {
-    players.voidboost = `https://voidboost.net/embed/${tmdbId}?poster=${encodeURIComponent(media.poster_path || '')}&title=${encodeURIComponent(media.title || '')}`;
+  // Add VoidBoost iframe (works with Kinopoisk ID)
+  if (kpId) {
+    if (media.media_type === 'tv' && season) {
+      players.voidboost = `https://voidboost.net/serial/${kpId}/season/${season}/episode/${episode || 1}`;
+    } else {
+      players.voidboost = `https://voidboost.net/iframe/${kpId}`;
+    }
   }
 
   // Add VidSrc iframe (works with IMDB ID)
   if (imdbId) {
-    players.vidsrc = `https://vidsrc.me/embed/${imdbId}/`;
+    if (media.media_type === 'tv') {
+      players.vidsrc = `https://vidsrc.net/embed/tv/${imdbId}?season=${season}&episode=${episode || 1}`;
+    } else {
+      players.vidsrc = `https://vidsrc.net/embed/movie/${imdbId}`;
+    }
   }
 
   // Add Vibix iframe (works with Kinopoisk ID)
   if (kpId) {
-    players.vibix = `https://vibix.tv/embed/${kpId}`;
+    if (media.media_type === 'tv' && season) {
+      players.vibix = `https://vibix.tv/embed/${kpId}?season=${season}&episode=${episode || 1}`;
+    } else {
+      players.vibix = `https://vibix.tv/embed/${kpId}`;
+    }
+  }
+
+  // Add KPPlayer iframe (works with Kinopoisk ID)
+  if (kpId) {
+    players.kpplayer = `https://kpplayer.net/iframe/${kpId}`;
+  }
+
+  // Add MovieShot iframe (works with Kinopoisk ID)
+  if (kpId) {
+    players.movieshot = `https://movieshot.info/iframe/${kpId}`;
+  }
+
+  // Add CDNmovies iframe (works with Kinopoisk ID)
+  if (kpId) {
+    players.cdnmovies = `https://cdnmovies.com/embed/${kpId}`;
   }
 
   return players;
 }
 
 // Get player URLs from Kodik API (using Kinopoisk ID)
-export async function getKodikPlayerUrl(kpId: number): Promise<string | null> {
+async function getKodikPlayerUrl(kpId: number): Promise<string | null> {
   if (!kpId) return null;
   
   try {
@@ -517,11 +355,10 @@ async function getAllohaPlayerUrl(kpId: number): Promise<string | null> {
   return null;
 }
 
-// Get Collaps URL (using Kinopoisk ID)
+// Get Collaps URL (using Kinopoisk ID - public API)
 async function getCollapsPlayerUrl(kpId: number): Promise<string | null> {
   try {
     const url = new URL('https://apicollaps.cc/list');
-    url.searchParams.append('token', COLLAPS_TOKEN);
     url.searchParams.append('kinopoisk_id', String(kpId));
     console.log('Collaps request:', url.toString());
     const response = await fetch(url.toString());
@@ -534,6 +371,14 @@ async function getCollapsPlayerUrl(kpId: number): Promise<string | null> {
     }
   } catch (e) {
     console.error('Collaps error:', e);
+  }
+  // Fallback: try with a different endpoint
+  try {
+    const url2 = new URL('https://collaps.tv/iframe');
+    url2.searchParams.append('kp', String(kpId));
+    return url2.toString();
+  } catch (e) {
+    console.error('Collaps fallback error:', e);
   }
   return null;
 }
@@ -580,173 +425,167 @@ async function getVideocdnPlayerUrl(kpId: number): Promise<string | null> {
   return null;
 }
 
-// Get trending
-export async function getTrending(signal?: AbortSignal): Promise<Media[]> {
-  try {
-    const url = new URL(`${TMDB_BASE_URL}/trending/all/week`);
-    url.searchParams.append('api_key', TMDB_API_KEY);
-    url.searchParams.append('language', 'ru-RU');
-
-    const response = await fetch(url.toString(), { signal });
-    
-    if (!response.ok) {
-      throw new Error(`TMDB API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    
-    return data.results.slice(0, 10).map(transformMedia);
-  } catch (e) {
-    if (e instanceof Error && e.name === 'AbortError') {
-      throw e;
-    }
-    console.error('Trending error:', e);
-    return [];
-  }
-}
-
-// Get popular movies
-export async function getPopularMovies(signal?: AbortSignal): Promise<Media[]> {
-  try {
-    const url = new URL(`${TMDB_BASE_URL}/movie/popular`);
-    url.searchParams.append('api_key', TMDB_API_KEY);
-    url.searchParams.append('language', 'ru-RU');
-    url.searchParams.append('page', '1');
-
-    const response = await fetch(url.toString(), { signal });
-    
-    if (!response.ok) {
-      throw new Error(`TMDB API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    
-    return data.results.slice(0, 10).map(transformMedia);
-  } catch (e) {
-    if (e instanceof Error && e.name === 'AbortError') {
-      throw e;
-    }
-    console.error('Popular movies error:', e);
-    return [];
-  }
-}
-
-// Get popular TV shows
-export async function getPopularTVShows(signal?: AbortSignal): Promise<Media[]> {
-  try {
-    const url = new URL(`${TMDB_BASE_URL}/tv/popular`);
-    url.searchParams.append('api_key', TMDB_API_KEY);
-    url.searchParams.append('language', 'ru-RU');
-    url.searchParams.append('page', '1');
-
-    const response = await fetch(url.toString(), { signal });
-    
-    if (!response.ok) {
-      throw new Error(`TMDB API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    
-    return data.results.slice(0, 10).map((r: any) => ({
-      ...transformMedia(r),
-      media_type: 'tv' as MediaType
-    }));
-  } catch (e) {
-    if (e instanceof Error && e.name === 'AbortError') {
-      throw e;
-    }
-    console.error('Popular TV shows error:', e);
-    return [];
-  }
-}
-
-// Get anime (Japanese movies)
-export async function getAnime(signal?: AbortSignal): Promise<Media[]> {
-  try {
-    const url = new URL(`${TMDB_BASE_URL}/discover/movie`);
-    url.searchParams.append('api_key', TMDB_API_KEY);
-    url.searchParams.append('language', 'ru-RU');
-    url.searchParams.append('with_origin_country', 'JP');
-    url.searchParams.append('page', '1');
-    url.searchParams.append('sort_by', 'popularity.desc');
-
-    const response = await fetch(url.toString(), { signal });
-    
-    if (!response.ok) {
-      throw new Error(`TMDB API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    
-    return data.results.slice(0, 10).map((r: any) => ({
-      ...transformMedia(r),
-      media_type: 'anime' as MediaType
-    }));
-  } catch (e) {
-    if (e instanceof Error && e.name === 'AbortError') {
-      throw e;
-    }
-    console.error('Anime error:', e);
-    return [];
-  }
-}
-
-// Get genres
-export async function getGenres(signal?: AbortSignal): Promise<Genre[]> {
-  try {
-    const url = new URL(`${TMDB_BASE_URL}/genre/movie/list`);
-    url.searchParams.append('api_key', TMDB_API_KEY);
-    url.searchParams.append('language', 'ru-RU');
-
-    const response = await fetch(url.toString(), { signal });
-    
-    if (!response.ok) {
-      throw new Error(`TMDB API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    return data.genres || [];
-  } catch (e) {
-    if (e instanceof Error && e.name === 'AbortError') {
-      throw e;
-    }
-    console.error('Genres error:', e);
-    return [];
-  }
-}
-
-// Helper to detect media type
-function getMediaType(result: any): MediaType {
-  // Check for anime (Japanese animation)
-  if (result.genre_ids && result.genre_ids.includes(16)) {
-    return 'anime';
-  }
-  return (result.media_type as MediaType) || 'movie';
-}
-
-// Transform TMDB result to our Media interface
-function transformMedia(result: any): Media {
-  const mediaType = getMediaType(result);
-  const title = mediaType === 'tv' ? (result.name || result.original_name) : (result.title || result.original_title);
-  const originalTitle = result.original_title || result.original_name || '';
+// Get Vibix iframe URL using their API
+export async function getVibixPlayerUrl(kpId: number, season?: number, episode?: number): Promise<string | null> {
+  if (!kpId) return null;
   
-  return {
-    id: result.id,
-    tmdb_id: result.id,
-    imdb_id: result.imdb_id || null,
-    kinopoisk_id: result.kinopoisk_id || null,
-    title: title,
-    original_title: originalTitle,
-    name: result.name,
-    original_name: result.original_name,
-    overview: result.overview || '',
-    poster_path: result.poster_path,
-    backdrop_path: result.backdrop_path,
-    release_date: result.release_date || result.first_air_date || '',
-    first_air_date: result.first_air_date,
-    vote_average: result.vote_average || 0,
-    vote_count: result.vote_count || 0,
-    media_type: mediaType,
-    genre_ids: result.genre_ids || [],
-  };
+  try {
+    const url = new URL(`https://vibix.org/api/v1/publisher/videos/kp/${kpId}`);
+    console.log('Vibix request:', url.toString());
+    
+    const response = await fetch(url.toString(), {
+      headers: {
+        'Authorization': `Bearer ${VIBIX_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      console.log('Vibix response:', data);
+      
+      if (data.iframe_url) {
+        // Add season/episode params if it's a TV show
+        if (season && episode) {
+          const separator = data.iframe_url.includes('?') ? '&' : '?';
+          return `${data.iframe_url}${separator}season=${season}&episode=${episode}`;
+        }
+        return data.iframe_url;
+      }
+    } else {
+      console.error('Vibix API error:', response.status, await response.text());
+    }
+  } catch (e) {
+    console.error('Vibix error:', e);
+  }
+  // Fallback: try direct iframe URL
+  if (season && episode) {
+    return `https://vibix.tv/embed/${kpId}?season=${season}&episode=${episode}`;
+  }
+  return `https://vibix.tv/embed/${kpId}`;
+}
+
+// Legacy exports for backward compatibility
+export async function getMovieDetails(id: string, signal?: AbortSignal): Promise<MediaDetails | null> {
+  return getKinopoiskDetails(id, signal);
+}
+
+export async function getTrending(signal?: AbortSignal): Promise<Media[]> {
+  return getKinopoiskPopular(signal);
+}
+
+export async function getPopularMovies(signal?: AbortSignal): Promise<Media[]> {
+  return getKinopoiskPopular(signal);
+}
+
+export async function getPopularTVShows(signal?: AbortSignal): Promise<Media[]> {
+  return getKinopoiskPopular(signal);
+}
+
+export async function getAnime(signal?: AbortSignal): Promise<Media[]> {
+  return getKinopoiskPopular(signal);
+}
+
+// Get popular from Kinopoisk API (works from Russia)
+export async function getKinopoiskPopular(signal?: AbortSignal): Promise<Media[]> {
+  try {
+    const url = new URL(`${KINOPOISK_API_BASE}/api/v2.2/films/premieres`);
+    url.searchParams.append('year', String(new Date().getFullYear()));
+    url.searchParams.append('month', '1');
+    
+    console.log('Kinopoisk popular:', url.toString());
+    const response = await fetch(url.toString(), {
+      signal,
+      headers: {
+        'X-API-KEY': KINOPOISK_API_KEY,
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Kinopoisk API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('Kinopoisk premieres:', data);
+    
+    if (!data.items || data.items.length === 0) {
+      return [];
+    }
+
+    // Transform Kinopoisk results to our Media format
+    const mediaResults: Media[] = data.items.slice(0, 20).map((film: any) => ({
+      id: film.kinopoiskId,
+      tmdb_id: 0,
+      kinopoisk_id: film.kinopoiskId,
+      imdb_id: null,
+      title: film.nameRu || film.nameEn || '',
+      original_title: film.nameEn || '',
+      name: film.nameRu || film.nameEn || '',
+      original_name: film.nameEn || '',
+      overview: film.description || '',
+      poster_path: film.posterUrl || null,
+      backdrop_path: null,
+      release_date: film.year || '',
+      first_air_date: film.year,
+      vote_average: film.ratingKinopoisk || 0,
+      vote_count: film.ratingKinopoiskVoteCount || 0,
+      media_type: film.type === 'SERIAL' ? 'tv' : 'movie',
+      genre_ids: [],
+    }));
+
+    return mediaResults;
+  } catch (e) {
+    if (e instanceof Error && e.name === 'AbortError') {
+      throw e;
+    }
+    console.error('Kinopoisk popular error:', e);
+    return [];
+  }
+}
+
+// Get seasons for TV series/anime from Kinopoisk API
+export async function getKinopoiskSeasons(id: string, signal?: AbortSignal): Promise<Season[]> {
+  if (!id) return [];
+
+  const kpId = parseInt(id, 10);
+  if (isNaN(kpId)) return [];
+
+  try {
+    const url = new URL(`${KINOPOISK_API_BASE}/api/v2.2/films/${kpId}/seasons`);
+    
+    console.log('Kinopoisk seasons:', url.toString());
+    const response = await fetch(url.toString(), {
+      signal,
+      headers: {
+        'X-API-KEY': KINOPOISK_API_KEY,
+        'accept': 'application/json',
+      },
+    });
+    
+    if (!response.ok) {
+      console.error('Seasons API error:', response.status);
+      return [];
+    }
+
+    const data = await response.json();
+    console.log('Kinopoisk seasons data:', data);
+    
+    // API returns { total: number, items: [{ number: 1, episodes: [...] }] }
+    if (!data.items || data.items.length === 0) {
+      return [];
+    }
+
+    // Transform seasons data from items array
+    return data.items.map((item: any) => ({
+      season_number: item.number || 0,
+      name: `Сезон ${item.number}`,
+      poster_path: null,
+      episode_count: item.episodes?.length || 0,
+      air_date: null,
+    }));
+  } catch (e) {
+    console.error('Kinopoisk seasons error:', e);
+    return [];
+  }
 }
