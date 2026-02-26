@@ -53,16 +53,16 @@ export function Movie() {
   const rendexRef = React.useRef<HTMLModElement | null>(null);
   const vibixRef = React.useRef<HTMLModElement | null>(null);
 
-  // Initialize Rendex SDK when switching to rendex player
+  // Initialize Rendex SDK when switching to rendex or vibix player
   useEffect(() => {
-    if (activePlayer === 'rendex') {
+    if (activePlayer === 'rendex' || activePlayer === 'vibix') {
       if ((window as any).rendex) {
         setTimeout(() => {
           (window as any).rendex.init();
         }, 100);
       }
     }
-  }, [activePlayer, media?.kinopoisk_id]);
+  }, [activePlayer, media?.kinopoisk_id, selectedSeason, selectedEpisode]);
 
   // Load Vibix embed data when switching to vibix player
   useEffect(() => {
@@ -76,11 +76,11 @@ export function Movie() {
         );
         setVibixEmbedData(data);
         
-        // Initialize Rendex SDK for Vibix
+        // Reinitialize SDK after loading Vibix data
         if ((window as any).rendex) {
           setTimeout(() => {
             (window as any).rendex.init();
-          }, 100);
+          }, 200);
         }
       };
       loadVibixData();
@@ -477,21 +477,30 @@ export function Movie() {
               ref={rendexRef}
               className="rendex-player w-full h-full min-h-[370px]"
               data-publisher-id="677077910"
-              data-type={(media?.media_type === 'tv' || media?.media_type === 'anime') ? 'series' : 'kp'}
+              data-type={(media?.media_type === 'tv' || media?.media_type === 'anime') ? 'series' : 'movie'}
               data-id={media?.kinopoisk_id?.toString() || ''}
-              data-season={media && (media.media_type === 'tv' || media.media_type === 'anime') ? selectedSeason : undefined}
-              data-episodes={media && (media.media_type === 'tv' || media.media_type === 'anime') ? selectedEpisode : undefined}
+              data-voiceover="147"
               data-design="1"
+              data-color1="#56ceaa"
+              data-color2="#ffffff"
+              data-color3="#aec7bc"
+              data-color4="#42bd88"
+              data-color5="#000000"
             ></ins>
           ) : activePlayer === 'vibix' && vibixEmbedData?.iframeUrl ? (
-            <iframe
-              key={iframeKey}
-              src={vibixEmbedData.iframeUrl}
-              className="absolute inset-0 h-full w-full border-0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-              allowFullScreen
-              title="Vibix Player"
-            ></iframe>
+            <ins 
+              className="rendex-player w-full h-full min-h-[370px]"
+              data-publisher-id="677077910"
+              data-type={(media?.media_type === 'tv' || media?.media_type === 'anime') ? 'series' : 'movie'}
+              data-id={media?.kinopoisk_id?.toString() || ''}
+              data-voiceover="147"
+              data-design="1"
+              data-color1="#56ceaa"
+              data-color2="#ffffff"
+              data-color3="#aec7bc"
+              data-color4="#42bd88"
+              data-color5="#000000"
+            ></ins>
           ) : playerUrl ? (
             <iframe
               key={iframeKey}
