@@ -53,6 +53,18 @@ export function Movie() {
   const rendexRef = React.useRef<HTMLModElement | null>(null);
   const vibixRef = React.useRef<HTMLModElement | null>(null);
 
+  // Initialize Rendex SDK once when component mounts
+  useEffect(() => {
+    // Load SDK script if not already loaded
+    if (!document.getElementById('rendex-sdk')) {
+      const script = document.createElement('script');
+      script.id = 'rendex-sdk';
+      script.src = 'https://graphicslab.io/sdk/v2/rendex-sdk.min.js';
+      script.async = true;
+      document.head.appendChild(script);
+    }
+  }, []);
+
   // Initialize Rendex SDK when switching to rendex or vibix player
   useEffect(() => {
     if (activePlayer === 'rendex' || activePlayer === 'vibix') {
@@ -62,7 +74,7 @@ export function Movie() {
         }, 100);
       }
     }
-  }, [activePlayer, media?.kinopoisk_id, selectedSeason, selectedEpisode]);
+  }, [activePlayer]);
 
   // Load Vibix embed data when switching to vibix player
   useEffect(() => {
@@ -76,7 +88,7 @@ export function Movie() {
         );
         setVibixEmbedData(data);
         
-        // Reinitialize SDK after loading Vibix data
+        // Initialize SDK after loading Vibix data
         if ((window as any).rendex) {
           setTimeout(() => {
             (window as any).rendex.init();
