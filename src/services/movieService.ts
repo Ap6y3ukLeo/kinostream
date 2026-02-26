@@ -448,11 +448,7 @@ export async function getVibixPlayerUrl(kpId: number, season?: number, episode?:
       const iframeUrl = data.iframe_url || data.embed_url || data.url || data.player_url || data.src || data.embed;
       if (iframeUrl) {
         console.log('Found iframe URL:', iframeUrl);
-        // Add season/episode params if it's a TV show
-        if (season && episode) {
-          const separator = iframeUrl.includes('?') ? '&' : '?';
-          return `${iframeUrl}${separator}season=${season}&episode=${episode}`;
-        }
+        // Don't add season/episode as query params - the player handles it internally
         return iframeUrl;
       } else {
         console.log('Vibix response fields:', Object.keys(data));
