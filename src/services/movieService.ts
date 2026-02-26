@@ -444,13 +444,17 @@ export async function getVibixPlayerUrl(kpId: number, season?: number, episode?:
       const data = await response.json();
       console.log('Vibix response:', data);
       
-      if (data.iframe_url) {
+      // Try different possible field names for iframe URL
+      const iframeUrl = data.iframe_url || data.embed_url || data.url || data.player_url || data.src;
+      if (iframeUrl) {
         // Add season/episode params if it's a TV show
         if (season && episode) {
-          const separator = data.iframe_url.includes('?') ? '&' : '?';
-          return `${data.iframe_url}${separator}season=${season}&episode=${episode}`;
+          const separator = iframeUrl.includes('?') ? '&' : '?';
+          return `${iframeUrl}${separator}season=${season}&episode=${episode}`;
         }
-        return data.iframe_url;
+        return iframeUrl;
+      } else {
+        console.log('Vibix response fields:', Object.keys(data));
       }
     } else {
       console.error('Vibix API error:', response.status, await response.text());
