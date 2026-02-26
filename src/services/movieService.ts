@@ -425,7 +425,7 @@ async function getVideocdnPlayerUrl(kpId: number): Promise<string | null> {
   return null;
 }
 
-// Get Vibix embed data using their API
+// Get Vibix embed data using their API - direct request
 export interface VibixEmbedData {
   iframeUrl: string | null;
   publisherId: string | null;
@@ -441,28 +441,30 @@ export async function getVibixEmbedData(kpId: number, season?: number, episode?:
   
   if (!kpId) return result;
   
-  // Try direct API call first
   try {
     const url = `https://vibix.org/api/v1/publisher/videos/kp/${kpId}`;
-    console.log('Vibix direct request:', url);
+    console.log('Vibix request:', url);
     
     const response = await fetch(url, {
+      method: 'GET',
       headers: {
         'Authorization': `Bearer ${VIBIX_TOKEN}`,
-        'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
     });
     
+    console.log('Vibix response status:', response.status);
+    
     if (response.ok) {
       const data = await response.json();
-      console.log('Vibix response (direct):', data);
+      console.log('Vibix response data:', data);
       
       result.iframeUrl = data.iframe_url || null;
       result.name = data.name || data.name_rus || data.name_eng || null;
       result.quality = data.quality || null;
       result.year = data.year ? String(data.year) : null;
       
+      // Parse embed_code if available
       if (data.embed_code) {
         const match = data.embed_code.match(/data-publisher-id="([^"]+)"\s+data-type="([^"]+)"\s+data-id="([^"]+)"/);
         if (match) {
@@ -474,21 +476,12 @@ export async function getVibixEmbedData(kpId: number, season?: number, episode?:
       
       return result;
     } else {
-      console.log('Direct API failed:', response.status);
+      console.error('Vibix API error:', response.status, await response.text());
     }
   } catch (e) {
-    console.log('Direct API error:', e);
+    console.error('Vibix error:', e);
   }
   
-  // Fallback: try direct vibix.tv embed URL
-  // This is a fallback when API doesn't work
-  if (season && episode) {
-    result.iframeUrl = `https://vibix.tv/embed/${kpId}?season=${season}&episode=${episode}`;
-  } else {
-    result.iframeUrl = `https://vibix.tv/embed/${kpId}`;
-  }
-  
-  console.log('Using fallback Vibix URL:', result.iframeUrl);
   return result;
 }
 

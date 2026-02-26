@@ -481,21 +481,15 @@ export function Movie() {
               data-episodes={media && (media.media_type === 'tv' || media.media_type === 'anime') ? selectedEpisode : undefined}
               data-design="1"
             ></ins>
-          ) : activePlayer === 'vibix' && vibixEmbedData?.videoId ? (
-            <ins 
-              className="rendex-player w-full h-full min-h-[370px]"
-              data-publisher-id="677077910"
-              data-type={vibixEmbedData.videoType || 'movie'}
-              data-id={vibixEmbedData.videoId || ''}
-              data-season={media && (media.media_type === 'tv' || media.media_type === 'anime') ? selectedSeason : undefined}
-              data-episodes={media && (media.media_type === 'tv' || media.media_type === 'anime') ? selectedEpisode : undefined}
-              data-design="1"
-              data-color1="#56ceaa"
-              data-color2="#ffffff"
-              data-color3="#aec7bc"
-              data-color4="#42bd88"
-              data-color5="#000000"
-            ></ins>
+          ) : activePlayer === 'vibix' && vibixEmbedData?.iframeUrl ? (
+            <iframe
+              key={iframeKey}
+              src={vibixEmbedData.iframeUrl}
+              className="absolute inset-0 h-full w-full border-0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+              allowFullScreen
+              title="Vibix Player"
+            ></iframe>
           ) : playerUrl ? (
             <iframe
               key={iframeKey}
