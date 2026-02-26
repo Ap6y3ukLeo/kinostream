@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { Loader2, Play, Film, Tv, Sparkles, Calendar, Clock, Star, AlertCircle } from 'lucide-react';
 import clsx from 'clsx';
 
-type PlayerType = 'vidsrc' | 'vibix';
+type PlayerType = 'vidsrc' | 'vibix' | 'rendex';
 
 interface PlayerOption {
   id: PlayerType;
@@ -25,7 +25,13 @@ const PLAYERS: PlayerOption[] = [
     id: 'vibix', 
     name: 'Vibix', 
     icon: Play, 
-    description: 'Vibix плеер (требуется API ключ)',
+    description: 'Vibix плеер',
+  },
+  { 
+    id: 'rendex', 
+    name: 'Rendex', 
+    icon: Play, 
+    description: 'Rendex плеер',
   },
 ];
 
@@ -43,6 +49,29 @@ export function Movie() {
   const [iframeKey, setIframeKey] = useState(0);
   const [playerUrl, setPlayerUrl] = useState<string>('');
   const [loadingPlayer, setLoadingPlayer] = useState(false);
+  const rendexRef = React.useRef<HTMLModElement | null>(null);
+
+  // Render Rendex player when active
+  useEffect(() => {
+    if (activePlayer === 'rendex' && media && rendexRef.current) {
+      const kpId = media.kinopoisk_id;
+      const isSeries = media.media_type === 'tv' || media.media_type === 'anime';
+      
+      rendexRef.current.setAttribute('data-publisher-id', '677077910');
+      rendexRef.current.setAttribute('data-type', isSeries ? 'series' : 'kp');
+      rendexRef.current.setAttribute('data-id', String(kpId));
+      
+      if (isSeries) {
+        rendexRef.current.setAttribute('data-season', String(selectedSeason));
+        rendexRef.current.setAttribute('data-episodes', String(selectedEpisode));
+      }
+      
+      // Re-initialize Rendex SDK
+      if ((window as any).rendex) {
+        (window as any).rendex.init();
+      }
+    }
+  }, [activePlayer, media, selectedSeason, selectedEpisode]);
 
   const loadMedia = useCallback(async () => {
     if (id) {
@@ -429,6 +458,15 @@ export function Movie() {
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-zinc-500"></div>
               <p className="mt-2">Загрузка плеера...</p>
             </div>
+          ) : activePlayer === 'rendex' ? (
+            <ins 
+              ref={rendexRef}
+              className="rendex-player w-full h-full min-h-[370px]"
+              data-publisher-id="677077910"
+              data-type="kp"
+              data-id={media?.kinopoisk_id?.toString() || ''}
+              data-design="1"
+            ></ins>
           ) : playerUrl ? (
             <iframe
               key={iframeKey}
@@ -446,7 +484,7 @@ export function Movie() {
           )}
           
           <div className="pointer-events-none absolute left-4 top-4 rounded-md bg-black/60 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-md z-10">
-            {activePlayer === 'vidsrc' ? 'VidSrc' : 'Vibix'}
+            {activePlayer === 'vidsrc' ? 'VidSrc' : activePlayer === 'vibix' ? 'Vibix' : 'Rendex'}
           </div>
         </div>
         
