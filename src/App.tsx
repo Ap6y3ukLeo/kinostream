@@ -7,6 +7,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Home } from './pages/Home';
 import { Search } from './pages/Search';
 import { Movie } from './pages/Movie';
+import Vibix from './pages/Vibix';
 import { Layout } from './components/Layout';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
@@ -20,6 +21,7 @@ export default function App() {
             <Route path="search" element={<Search />} />
             <Route path="search/:query" element={<Search />} />
             <Route path="media/:id" element={<Movie />} />
+            <Route path="vibix" element={<Vibix />} />
             {/* Legacy route for backwards compatibility */}
             <Route path="movie/:id" element={<Movie />} />
           </Route>

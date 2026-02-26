@@ -105,15 +105,13 @@ export function Home() {
 
           {/* Vibix Button */}
           <div className="mt-8">
-            <a
-              href="https://vibix.org"
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              onClick={() => navigate('/vibix')}
               className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-zinc-900"
             >
               <PlayCircle className="h-5 w-5" />
               Открыть Vibix плеер
-            </a>
+            </button>
           </div>
         </motion.div>
       </div>
