@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { ArrowLeft, Play, Loader2 } from 'lucide-react';
 
@@ -84,11 +84,18 @@ export default function VibixPage() {
     }
   };
 
+  // Load SDK script
+  useEffect(() => {
+    if (!document.getElementById('rendex-sdk')) {
+      const script = document.createElement('script');
+      script.id = 'rendex-sdk';
+      script.src = 'https://graphicslab.io/sdk/v2/rendex-sdk.min.js';
+      document.head.appendChild(script);
+    }
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#0b0f19] text-gray-200" style={{ fontFamily: "'Segoe UI', sans-serif" }}>
-      {/* SDK Script */}
-      <script id="rendex-sdk" src="https://graphicslab.io/sdk/v2/rendex-sdk.min.js"></script>
-
       <div className="container mx-auto px-4 py-8" style={{ maxWidth: '900px' }}>
         {/* Back Button */}
         <button
@@ -149,7 +156,7 @@ export default function VibixPage() {
             </p>
           </div>
         )}
-
+        <ins data-publisher-id="677077910" data-type="series" data-id="6384"></ins>
         {/* Player Container */}
         <div 
           id="vibix-player-container" 
