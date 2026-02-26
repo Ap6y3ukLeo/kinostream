@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { Loader2, Play, Film, Tv, Sparkles, Calendar, Clock, Star, AlertCircle } from 'lucide-react';
 import clsx from 'clsx';
 
-type PlayerType = 'vidsrc' | 'vibix' | 'rendex';
+type PlayerType = 'vidsrc' | 'vibix';
 
 interface PlayerOption {
   id: PlayerType;
@@ -27,12 +27,6 @@ const PLAYERS: PlayerOption[] = [
     icon: Play, 
     description: 'Vibix плеер',
   },
-  { 
-    id: 'rendex', 
-    name: 'Rendex', 
-    icon: Play, 
-    description: 'Rendex плеер',
-  },
 ];
 
 export function Movie() {
@@ -43,14 +37,13 @@ export function Movie() {
   const [media, setMedia] = useState<MediaDetails | null>(null);
   const [seasons, setSeasons] = useState<Season[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activePlayer, setActivePlayer] = useState<PlayerType>('vidsrc');
+  const [activePlayer, setActivePlayer] = useState<PlayerType>('vibix');
   const [selectedSeason, setSelectedSeason] = useState<number>(1);
   const [selectedEpisode, setSelectedEpisode] = useState<number>(1);
   const [iframeKey, setIframeKey] = useState(0);
   const [playerUrl, setPlayerUrl] = useState<string>('');
   const [loadingPlayer, setLoadingPlayer] = useState(false);
   const [vibixEmbedData, setVibixEmbedData] = useState<VibixEmbedData | null>(null);
-  const rendexRef = React.useRef<HTMLModElement | null>(null);
   const vibixRef = React.useRef<HTMLModElement | null>(null);
 
   // Initialize Rendex SDK once when component mounts
@@ -65,9 +58,9 @@ export function Movie() {
     }
   }, []);
 
-  // Initialize Rendex SDK when switching to rendex or vibix player
+  // Initialize Rendex SDK when switching to vibix player
   useEffect(() => {
-    if (activePlayer === 'rendex' || activePlayer === 'vibix') {
+    if (activePlayer === 'vibix') {
       if ((window as any).rendex) {
         setTimeout(() => {
           (window as any).rendex.init();
@@ -484,21 +477,6 @@ export function Movie() {
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-zinc-500"></div>
               <p className="mt-2">Загрузка плеера...</p>
             </div>
-          ) : activePlayer === 'rendex' ? (
-            <ins 
-              ref={rendexRef}
-              className="rendex-player w-full h-full min-h-[370px]"
-              data-publisher-id="677077910"
-              data-type={(media?.media_type === 'tv' || media?.media_type === 'anime') ? 'series' : 'movie'}
-              data-id={media?.kinopoisk_id?.toString() || ''}
-              data-voiceover="147"
-              data-design="1"
-              data-color1="#56ceaa"
-              data-color2="#ffffff"
-              data-color3="#aec7bc"
-              data-color4="#42bd88"
-              data-color5="#000000"
-            ></ins>
           ) : activePlayer === 'vibix' && vibixEmbedData?.videoId ? (
             <ins 
               className="rendex-player w-full h-full min-h-[370px]"
