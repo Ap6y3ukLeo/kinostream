@@ -1,65 +1,66 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Play, Loader2 } from 'lucide-react';
+import { ArrowLeft, Play, Loader2, AlertTriangle } from 'lucide-react';
 
 const API_KEY = '23861|hG6BsABzO9l5GUH0Ixwi270wTybAVUJKUQhtSf6Ka33b7d87';
 const PUBLISHER_ID = "677077910";
 
-interface VibixMovieInfo {
+interface VibixData {
+  id: number; // Внутренний ID Vibix
   name_rus?: string;
   name?: string;
-  description?: string;
   type: string;
+  description?: string;
 }
 
 export default function VibixPage() {
   const navigate = useNavigate();
   const [kpId, setKpId] = useState('');
   const [loading, setLoading] = useState(false);
-  const [movieInfo, setMovieInfo] = useState<VibixMovieInfo | null>(null);
+  const [movieData, setMovieData] = useState<VibixData | null>(null);
   const [error, setError] = useState('');
 
-  // Функция перезагрузки SDK
-  const reinitSDK = () => {
-    // Удаляем старый скрипт, если он есть
-    const oldScript = document.getElementById('rendex-sdk');
+  // 1. Функция полной перезагрузки SDK Rendex
+  const reloadRendex = () => {
+    const scriptId = 'rendex-sdk';
+    const oldScript = document.getElementById(scriptId);
     if (oldScript) oldScript.remove();
 
-    // Создаем и добавляем новый скрипт
     const script = document.createElement('script');
-    script.id = 'rendex-sdk';
-    script.src = 'https://graphicslab.io/sdk/v2/rendex-sdk.min.js';
+    script.id = scriptId;
+    script.src = `https://graphicslab.io/sdk/v2/rendex-sdk.min.js?t=${Date.now()}`; // добавляем timestamp для сброса кеша
     script.async = true;
     document.head.appendChild(script);
   };
 
-  const searchAndPlay = async () => {
+  const handleSearch = async () => {
     if (!kpId.trim()) return;
 
     setLoading(true);
     setError('');
-    setMovieInfo(null);
+    setMovieData(null);
 
     try {
-      // 1. Получаем инфо о типе контента (фильм или сериал)
+      // 2. Получаем внутренние данные видео через API
       const response = await fetch(`https://vibix.org/api/v1/publisher/videos/kp/${kpId}`, {
         headers: { 'Authorization': `Bearer ${API_KEY}` }
       });
 
-      if (!response.ok) throw new Error("Контент не найден в API");
-      const data = await response.json();
-      setMovieInfo(data);
+      if (!response.ok) throw new Error("Видео не найдено в базе Vibix.");
+      const data: VibixData = await response.json();
+      
+      setMovieData(data);
 
-      // Определяем тип для тега
+      // 3. Формируем тег <ins> динамически
+      // Важно: используем data.id (внутренний), а не kpId!
       const finalType = (data.type === 'serial' || data.type === 'series') ? 'series' : 'movie';
-
-      // 2. Вставляем тег <ins> вручную в контейнер
-      const container = document.getElementById('vibix-player-container');
-      if (container) {
-        container.innerHTML = `
+      const playerContainer = document.getElementById('player-box');
+      
+      if (playerContainer) {
+        playerContainer.innerHTML = `
           <ins data-publisher-id="${PUBLISHER_ID}" 
                data-type="${finalType}" 
-               data-id="${kpId}" 
+               data-id="${data.id}" 
                data-voiceover="147" 
                data-design="1" 
                data-color1="#56ceaa" 
@@ -69,82 +70,69 @@ export default function VibixPage() {
                data-color5="#000000">
           </ins>
         `;
+        
+        // 4. Перезапускаем SDK
+        reloadRendex();
       }
 
-      // 3. Пингуем SDK, чтобы он превратил <ins> в плеер
-      reinitSDK();
-
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Ошибка при загрузке');
+      setError(err instanceof Error ? err.message : 'Произошла ошибка');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') searchAndPlay();
-  };
-
   return (
-    <div className="min-h-screen bg-[#0b0f19] text-gray-200 p-6" style={{ fontFamily: "'Segoe UI', sans-serif" }}>
-      <div className="max-w-[900px] mx-auto">
-        
-        {/* Кнопка Назад */}
-        <button
-          onClick={() => navigate('/')}
-          className="flex items-center gap-2 text-gray-400 hover:text-white mb-8 transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5" /> На главную
+    <div className="min-h-screen bg-[#0b0f19] text-white p-6">
+      <div className="max-w-4xl mx-auto">
+        <button onClick={() => navigate('/')} className="flex items-center gap-2 text-gray-400 mb-8">
+          <ArrowLeft size={20} /> Назад
         </button>
 
-        <h1 className="text-3xl font-bold mb-8 text-white">Vibix SDK Player</h1>
-
-        {/* Поиск */}
-        <div className="bg-[#161b2a] p-6 rounded-2xl flex gap-3 mb-8 shadow-xl border border-gray-800">
-          <input
-            type="text"
-            value={kpId}
-            onChange={(e) => setKpId(e.target.value)}
-            onKeyDown={handleKeyPress}
-            placeholder="Введите Kinopoisk ID (напр. 484488)"
-            className="flex-1 px-4 py-3 rounded-xl border border-gray-700 bg-[#0b0f19] text-white focus:outline-none focus:border-[#56ceaa]"
-          />
-          <button
-            onClick={searchAndPlay}
-            disabled={loading || !kpId.trim()}
-            className="px-8 py-3 bg-[#56ceaa] text-black font-bold rounded-xl hover:bg-[#4ab89a] disabled:opacity-50 flex items-center gap-2 transition-all active:scale-95"
-          >
-            {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5" fill="currentColor" />}
-            Смотреть
-          </button>
+        <div className="bg-[#161b2a] p-6 rounded-2xl shadow-xl mb-8 border border-gray-800">
+          <h1 className="text-xl font-bold mb-4">Поиск по Kinopoisk ID</h1>
+          <div className="flex gap-3">
+            <input
+              type="text"
+              value={kpId}
+              onChange={(e) => setKpId(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+              placeholder="Введите ID (например 484488)"
+              className="flex-1 bg-[#0b0f19] border border-gray-700 rounded-lg px-4 py-3 outline-none focus:border-[#56ceaa]"
+            />
+            <button
+              onClick={handleSearch}
+              disabled={loading}
+              className="bg-[#56ceaa] text-black font-bold px-8 rounded-lg hover:bg-[#46b392] transition-all disabled:opacity-50"
+            >
+              {loading ? <Loader2 className="animate-spin" /> : 'Найти'}
+            </button>
+          </div>
         </div>
 
-        {/* Ошибки */}
         {error && (
-          <div className="bg-red-900/20 border border-red-500/50 text-red-400 p-4 rounded-xl mb-6">
-            Ошибка: {error}
+          <div className="bg-red-900/20 border border-red-500/50 p-4 rounded-xl mb-6 text-red-400 flex items-center gap-2">
+            <AlertTriangle size={20} /> {error}
           </div>
         )}
 
-        {/* Инфо о фильме */}
-        {movieInfo && !loading && (
-          <div className="bg-[#161b2a] p-6 rounded-t-2xl border-x border-t border-gray-800 animate-in fade-in slide-in-from-bottom-2">
-            <span className="inline-block px-3 py-1 rounded-md text-[10px] font-black bg-[#56ceaa] text-black uppercase mb-3">
-              {movieInfo.type === 'serial' || movieInfo.type === 'series' ? 'Сериал' : 'Фильм'}
-            </span>
-            <h2 className="text-2xl font-bold text-white mb-2">{movieInfo.name_rus || movieInfo.name}</h2>
-            <p className="text-gray-400 text-sm line-clamp-2">{movieInfo.description}</p>
-          </div>
-        )}
-
-        {/* КОНТЕЙНЕР ДЛЯ SDK ПЛЕЕРА */}
-        <div 
-          id="vibix-player-container" 
-          className="w-full bg-black rounded-b-2xl overflow-hidden border border-gray-800 min-h-[500px] flex items-center justify-center"
-        >
-          {!movieInfo && !loading && (
-            <p className="text-gray-600 italic">Введите ID для запуска плеера</p>
+        {/* Секция плеера */}
+        <div className="bg-[#161b2a] rounded-2xl overflow-hidden border border-gray-800 shadow-2xl">
+          {movieData && (
+            <div className="p-6 border-b border-gray-800">
+              <h2 className="text-2xl font-bold">{movieData.name_rus || movieData.name}</h2>
+              <p className="text-gray-400 text-sm mt-1">{movieData.type === 'movie' ? 'Полнометражный фильм' : 'Сериал'}</p>
+            </div>
           )}
+          
+          <div id="player-box" className="w-full aspect-video bg-black flex items-center justify-center">
+             {!movieData && !loading && <p className="text-gray-600">Введите ID и нажмите поиск</p>}
+          </div>
+        </div>
+
+        <div className="mt-6 p-4 bg-yellow-900/10 border border-yellow-700/30 rounded-lg text-sm text-yellow-200/70">
+          <strong>Заметка по ошибке 400:</strong> Если плеер пишет "Контент не добавлен" или выдает 400, 
+          обязательно добавьте домен <u>kinostream.vercel.app</u> в настройках площадки в личном кабинете Vibix.
         </div>
       </div>
     </div>
