@@ -464,14 +464,12 @@ export async function getVibixEmbedData(kpId: number, season?: number, episode?:
       result.quality = data.quality || null;
       result.year = data.year ? String(data.year) : null;
       
-      // Parse embed_code if available
-      if (data.embed_code) {
-        const match = data.embed_code.match(/data-publisher-id="([^"]+)"\s+data-type="([^"]+)"\s+data-id="([^"]+)"/);
-        if (match) {
-          result.publisherId = match[1];
-          result.videoType = match[2];
-          result.videoId = match[3];
-        }
+      // Parse internal ID from iframe_url (e.g., https://vibix.org/iframe/123456 -> 123456)
+      if (data.iframe_url) {
+        const internalId = data.iframe_url.split('/').pop();
+        result.videoId = internalId || null;
+        result.videoType = (data.type === 'serial' || data.type === 'series') ? 'series' : 'movie';
+        result.publisherId = '677077910';
       }
       
       return result;

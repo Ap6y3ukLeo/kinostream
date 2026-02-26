@@ -487,12 +487,12 @@ export function Movie() {
               data-color4="#42bd88"
               data-color5="#000000"
             ></ins>
-          ) : activePlayer === 'vibix' && vibixEmbedData?.iframeUrl ? (
+          ) : activePlayer === 'vibix' && vibixEmbedData?.videoId ? (
             <ins 
               className="rendex-player w-full h-full min-h-[370px]"
               data-publisher-id="677077910"
-              data-type={(media?.media_type === 'tv' || media?.media_type === 'anime') ? 'series' : 'movie'}
-              data-id={media?.kinopoisk_id?.toString() || ''}
+              data-type={vibixEmbedData?.videoType || ((media?.media_type === 'tv' || media?.media_type === 'anime') ? 'series' : 'movie')}
+              data-id={vibixEmbedData?.videoId || ''}
               data-voiceover="147"
               data-design="1"
               data-color1="#56ceaa"
