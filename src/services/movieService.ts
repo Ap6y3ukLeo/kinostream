@@ -425,7 +425,7 @@ async function getVideocdnPlayerUrl(kpId: number): Promise<string | null> {
   return null;
 }
 
-// Get Vibix embed data using their API - with CORS proxy
+// Get Vibix embed data using their API
 export interface VibixEmbedData {
   iframeUrl: string | null;
   publisherId: string | null;
@@ -441,45 +441,54 @@ export async function getVibixEmbedData(kpId: number, season?: number, episode?:
   
   if (!kpId) return result;
   
+  // Try direct API call first
   try {
-    // Use AllOrigins proxy to bypass CORS
-    const targetUrl = `https://vibix.org/api/v1/publisher/videos/kp/${kpId}`;
-    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
+    const url = `https://vibix.org/api/v1/publisher/videos/kp/${kpId}`;
+    console.log('Vibix direct request:', url);
     
-    console.log('Vibix request via proxy:', proxyUrl);
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${VIBIX_TOKEN}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+    });
     
-    const response = await fetch(proxyUrl);
-    const proxyData = await response.json();
-    
-    if (!proxyData.contents) {
-      console.error('No contents from proxy');
-      return result;
-    }
-    
-    const data = JSON.parse(proxyData.contents);
-    console.log('Vibix response:', data);
-    
-    // Get iframe URL directly from response
-    result.iframeUrl = data.iframe_url || null;
-    result.name = data.name || data.name_rus || data.name_eng || null;
-    result.quality = data.quality || null;
-    result.year = data.year ? String(data.year) : null;
-    
-    // Parse embed_code if available
-    if (data.embed_code) {
-      const match = data.embed_code.match(/data-publisher-id="([^"]+)"\s+data-type="([^"]+)"\s+data-id="([^"]+)"/);
-      if (match) {
-        result.publisherId = match[1];
-        result.videoType = match[2];
-        result.videoId = match[3];
+    if (response.ok) {
+      const data = await response.json();
+      console.log('Vibix response (direct):', data);
+      
+      result.iframeUrl = data.iframe_url || null;
+      result.name = data.name || data.name_rus || data.name_eng || null;
+      result.quality = data.quality || null;
+      result.year = data.year ? String(data.year) : null;
+      
+      if (data.embed_code) {
+        const match = data.embed_code.match(/data-publisher-id="([^"]+)"\s+data-type="([^"]+)"\s+data-id="([^"]+)"/);
+        if (match) {
+          result.publisherId = match[1];
+          result.videoType = match[2];
+          result.videoId = match[3];
+        }
       }
+      
+      return result;
+    } else {
+      console.log('Direct API failed:', response.status);
     }
-    
-    console.log('Vibix embed data:', result);
   } catch (e) {
-    console.error('Vibix error:', e);
+    console.log('Direct API error:', e);
   }
   
+  // Fallback: try direct vibix.tv embed URL
+  // This is a fallback when API doesn't work
+  if (season && episode) {
+    result.iframeUrl = `https://vibix.tv/embed/${kpId}?season=${season}&episode=${episode}`;
+  } else {
+    result.iframeUrl = `https://vibix.tv/embed/${kpId}`;
+  }
+  
+  console.log('Using fallback Vibix URL:', result.iframeUrl);
   return result;
 }
 
