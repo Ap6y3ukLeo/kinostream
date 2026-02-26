@@ -65,9 +65,9 @@ export function Movie() {
     }
   }, []);
 
-  // Initialize Rendex SDK when switching to rendex or vibix player
+  // Initialize Rendex SDK when switching to rendex player
   useEffect(() => {
-    if (activePlayer === 'rendex' || activePlayer === 'vibix') {
+    if (activePlayer === 'rendex') {
       if ((window as any).rendex) {
         setTimeout(() => {
           (window as any).rendex.init();
@@ -81,23 +81,12 @@ export function Movie() {
     const kpId = media?.kinopoisk_id;
     if (activePlayer === 'vibix' && kpId) {
       const loadVibixData = async () => {
-        const data = await getVibixEmbedData(
-          kpId,
-          media.media_type === 'tv' || media.media_type === 'anime' ? selectedSeason : undefined,
-          media.media_type === 'tv' || media.media_type === 'anime' ? selectedEpisode : undefined
-        );
+        const data = await getVibixEmbedData(kpId);
         setVibixEmbedData(data);
-        
-        // Initialize SDK after loading Vibix data
-        if ((window as any).rendex) {
-          setTimeout(() => {
-            (window as any).rendex.init();
-          }, 200);
-        }
       };
       loadVibixData();
     }
-  }, [activePlayer, media?.kinopoisk_id, selectedSeason, selectedEpisode, media?.media_type]);
+  }, [activePlayer, media?.kinopoisk_id]);
 
   const loadMedia = useCallback(async () => {
     if (id) {
@@ -335,85 +324,6 @@ export function Movie() {
               </p>
             </div>
           )}
-
-          {/* Season/Episode selector for TV and Anime */}
-          {isTV && (
-            <div className="mt-6">
-              <div className="flex flex-wrap gap-6">
-                {/* Season selector */}
-                <div>
-                  <h3 className="text-sm font-semibold text-zinc-200 mb-3">Сезон</h3>
-                  <div className="flex flex-wrap gap-2 max-w-[400px]">
-                    {seasons.length > 0 ? (
-                      seasons.map((season) => (
-                        <button
-                          key={season.season_number}
-                          onClick={() => {
-                            setSelectedSeason(season.season_number);
-                            setSelectedEpisode(1);
-                            setIframeKey(prev => prev + 1);
-                          }}
-                          className={clsx(
-                            "rounded-lg px-3 py-1.5 text-sm font-medium transition-all min-w-[50px]",
-                            selectedSeason === season.season_number
-                              ? "bg-indigo-600 text-white"
-                              : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
-                          )}
-                          title={`${season.name} (${season.episode_count} серий)`}
-                        >
-                          {season.season_number}
-                        </button>
-                      ))
-                    ) : (
-                      // Fallback if no seasons data
-                      Array.from({ length: 10 }, (_, i) => i + 1).map((season) => (
-                        <button
-                          key={season}
-                          onClick={() => {
-                            setSelectedSeason(season);
-                            setSelectedEpisode(1);
-                            setIframeKey(prev => prev + 1);
-                          }}
-                          className={clsx(
-                            "rounded-lg px-3 py-1.5 text-sm font-medium transition-all min-w-[50px]",
-                            selectedSeason === season
-                              ? "bg-indigo-600 text-white"
-                              : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
-                          )}
-                        >
-                          {season}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </div>
-                
-                {/* Episode selector */}
-                <div>
-                  <h3 className="text-sm font-semibold text-zinc-200 mb-3">Серия</h3>
-                  <div className="flex flex-wrap gap-2 max-w-[400px]">
-                    {episodesArray.map((ep) => (
-                      <button
-                        key={ep}
-                        onClick={() => {
-                          setSelectedEpisode(ep);
-                          setIframeKey(prev => prev + 1);
-                        }}
-                        className={clsx(
-                          "rounded-lg px-3 py-1.5 text-sm font-medium transition-all min-w-[50px]",
-                          selectedEpisode === ep
-                            ? "bg-indigo-600 text-white"
-                            : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
-                        )}
-                      >
-                        {ep}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </motion.div>
 
@@ -445,14 +355,9 @@ export function Movie() {
         <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
             <h2 className="text-2xl font-bold">Смотреть онлайн</h2>
-            {isTV && (
-              <span className="text-sm text-zinc-400">
-                (Сезон {selectedSeason}, Серия {selectedEpisode})
-              </span>
-            )}
           </div>
 
-          <ins data-publisher-id="677077910" data-type="series" data-id="6384"></ins>
+          
           
           <div className="flex flex-wrap gap-2">
             {PLAYERS.map((player) => {
@@ -499,20 +404,14 @@ export function Movie() {
               data-color4="#42bd88"
               data-color5="#000000"
             ></ins>
-          ) : activePlayer === 'vibix' && vibixEmbedData?.videoId ? (
-            <ins 
-              className="rendex-player w-full h-full min-h-[370px]"
-              data-publisher-id="677077910"
-              data-type={vibixEmbedData?.videoType || ((media?.media_type === 'tv' || media?.media_type === 'anime') ? 'series' : 'movie')}
-              data-id={vibixEmbedData?.videoId || ''}
-              data-voiceover="147"
-              data-design="1"
-              data-color1="#56ceaa"
-              data-color2="#ffffff"
-              data-color3="#aec7bc"
-              data-color4="#42bd88"
-              data-color5="#000000"
-            ></ins>
+          ) : activePlayer === 'vibix' && vibixEmbedData?.iframeUrl ? (
+            <iframe
+              src={vibixEmbedData.iframeUrl}
+              className="absolute inset-0 h-full w-full border-0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+              referrerPolicy="no-referrer"
+              title="Vibix Player"
+            ></iframe>
           ) : playerUrl ? (
             <iframe
               key={iframeKey}
