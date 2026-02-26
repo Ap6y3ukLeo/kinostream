@@ -76,7 +76,7 @@ export function Movie() {
         );
         setVibixEmbedData(data);
         
-        // Initialize Rendex SDK for Vibix as well (same player)
+        // Initialize Rendex SDK for Vibix
         if ((window as any).rendex) {
           setTimeout(() => {
             (window as any).rendex.init();
@@ -480,6 +480,21 @@ export function Movie() {
               data-season={media && (media.media_type === 'tv' || media.media_type === 'anime') ? selectedSeason : undefined}
               data-episodes={media && (media.media_type === 'tv' || media.media_type === 'anime') ? selectedEpisode : undefined}
               data-design="1"
+            ></ins>
+          ) : activePlayer === 'vibix' && vibixEmbedData?.videoId ? (
+            <ins 
+              className="rendex-player w-full h-full min-h-[370px]"
+              data-publisher-id="677077910"
+              data-type={vibixEmbedData.videoType || 'movie'}
+              data-id={vibixEmbedData.videoId || ''}
+              data-season={media && (media.media_type === 'tv' || media.media_type === 'anime') ? selectedSeason : undefined}
+              data-episodes={media && (media.media_type === 'tv' || media.media_type === 'anime') ? selectedEpisode : undefined}
+              data-design="1"
+              data-color1="#56ceaa"
+              data-color2="#ffffff"
+              data-color3="#aec7bc"
+              data-color4="#42bd88"
+              data-color5="#000000"
             ></ins>
           ) : playerUrl ? (
             <iframe
