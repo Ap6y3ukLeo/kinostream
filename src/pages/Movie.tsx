@@ -145,9 +145,17 @@ export function Movie() {
     }
 
     if (activePlayer === 'vibix' && kpId) {
-      // Vibix uses API with Bearer token - embed data is loaded via useEffect
-      // Return iframe URL as fallback if embed data is not available
-      return vibixEmbedData?.iframeUrl || '';
+      // Vibix - return iframe URL directly (simpler approach like the example)
+      try {
+        const embedData = await getVibixEmbedData(kpId, selectedSeason, selectedEpisode);
+        if (embedData.iframeUrl) {
+          console.log('Vibix iframe URL:', embedData.iframeUrl);
+          return embedData.iframeUrl;
+        }
+      } catch (error) {
+        console.error('Error getting Vibix URL:', error);
+      }
+      return '';
     }
     
     return '';
@@ -473,26 +481,6 @@ export function Movie() {
               data-episodes={media && (media.media_type === 'tv' || media.media_type === 'anime') ? selectedEpisode : undefined}
               data-design="1"
             ></ins>
-          ) : activePlayer === 'vibix' && vibixEmbedData?.publisherId && vibixEmbedData?.videoId ? (
-            <ins 
-              ref={vibixRef}
-              className="rendex-player w-full h-full min-h-[370px]"
-              data-publisher-id={vibixEmbedData.publisherId}
-              data-type={vibixEmbedData.videoType || 'kp'}
-              data-id={vibixEmbedData.videoId}
-              data-season={media && (media.media_type === 'tv' || media.media_type === 'anime') ? selectedSeason : undefined}
-              data-episodes={media && (media.media_type === 'tv' || media.media_type === 'anime') ? selectedEpisode : undefined}
-              data-design="1"
-            ></ins>
-          ) : activePlayer === 'vibix' && vibixEmbedData?.iframeUrl ? (
-            <iframe
-              key={iframeKey}
-              src={vibixEmbedData.iframeUrl}
-              className="absolute inset-0 h-full w-full border-0"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-              referrerPolicy="no-referrer"
-              title="Player"
-            ></iframe>
           ) : playerUrl ? (
             <iframe
               key={iframeKey}
