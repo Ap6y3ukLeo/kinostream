@@ -57,13 +57,16 @@ export function Movie() {
       const kpId = media.kinopoisk_id;
       const isSeries = media.media_type === 'tv' || media.media_type === 'anime';
       
+      // Clear previous attributes
       rendexRef.current.setAttribute('data-publisher-id', '677077910');
-      rendexRef.current.setAttribute('data-type', isSeries ? 'series' : 'kp');
       rendexRef.current.setAttribute('data-id', String(kpId));
       
       if (isSeries) {
+        rendexRef.current.setAttribute('data-type', 'series');
         rendexRef.current.setAttribute('data-season', String(selectedSeason));
         rendexRef.current.setAttribute('data-episodes', String(selectedEpisode));
+      } else {
+        rendexRef.current.setAttribute('data-type', 'kp');
       }
       
       // Re-initialize Rendex SDK
@@ -463,8 +466,6 @@ export function Movie() {
               ref={rendexRef}
               className="rendex-player w-full h-full min-h-[370px]"
               data-publisher-id="677077910"
-              data-type="kp"
-              data-id={media?.kinopoisk_id?.toString() || ''}
               data-design="1"
             ></ins>
           ) : playerUrl ? (
