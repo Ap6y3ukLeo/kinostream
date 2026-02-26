@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { getKinopoiskDetails, getKinopoiskSeasons, MediaDetails, getPosterUrl, MediaType, Season, getVibixPlayerUrl } from '../services/movieService';
+import { getKinopoiskDetails, getKinopoiskSeasons, MediaDetails, getPosterUrl, MediaType, Season, getVibixEmbedData, VibixEmbedData } from '../services/movieService';
 import { motion } from 'framer-motion';
 import { Loader2, Play, Film, Tv, Sparkles, Calendar, Clock, Star, AlertCircle } from 'lucide-react';
 import clsx from 'clsx';
@@ -49,7 +49,9 @@ export function Movie() {
   const [iframeKey, setIframeKey] = useState(0);
   const [playerUrl, setPlayerUrl] = useState<string>('');
   const [loadingPlayer, setLoadingPlayer] = useState(false);
+  const [vibixEmbedData, setVibixEmbedData] = useState<VibixEmbedData | null>(null);
   const rendexRef = React.useRef<HTMLModElement | null>(null);
+  const vibixRef = React.useRef<HTMLModElement | null>(null);
 
   // Initialize Rendex SDK when switching to rendex player
   useEffect(() => {
@@ -61,6 +63,29 @@ export function Movie() {
       }
     }
   }, [activePlayer, media?.kinopoisk_id]);
+
+  // Load Vibix embed data when switching to vibix player
+  useEffect(() => {
+    const kpId = media?.kinopoisk_id;
+    if (activePlayer === 'vibix' && kpId) {
+      const loadVibixData = async () => {
+        const data = await getVibixEmbedData(
+          kpId,
+          media.media_type === 'tv' || media.media_type === 'anime' ? selectedSeason : undefined,
+          media.media_type === 'tv' || media.media_type === 'anime' ? selectedEpisode : undefined
+        );
+        setVibixEmbedData(data);
+        
+        // Initialize Rendex SDK for Vibix as well (same player)
+        if ((window as any).rendex) {
+          setTimeout(() => {
+            (window as any).rendex.init();
+          }, 100);
+        }
+      };
+      loadVibixData();
+    }
+  }, [activePlayer, media?.kinopoisk_id, selectedSeason, selectedEpisode, media?.media_type]);
 
   const loadMedia = useCallback(async () => {
     if (id) {
@@ -120,21 +145,9 @@ export function Movie() {
     }
 
     if (activePlayer === 'vibix' && kpId) {
-      // Vibix uses API with Bearer token
-      try {
-        const vibixUrl = await getVibixPlayerUrl(kpId, selectedSeason, selectedEpisode);
-        console.log('Vibix URL returned:', vibixUrl);
-        if (vibixUrl) {
-          return vibixUrl;
-        }
-      } catch (error) {
-        console.error('Error getting Vibix URL:', error);
-      }
-      // Fallback to direct embed if API fails
-      if (media.media_type === 'tv' || media.media_type === 'anime') {
-        return `https://vibix.tv/embed/${kpId}?season=${selectedSeason}&episode=${selectedEpisode}`;
-      }
-      return `https://vibix.tv/embed/${kpId}`;
+      // Vibix uses API with Bearer token - embed data is loaded via useEffect
+      // Just return empty string, player is rendered via Vibix embed
+      return '';
     }
     
     return '';
@@ -456,6 +469,17 @@ export function Movie() {
               data-publisher-id="677077910"
               data-type={(media?.media_type === 'tv' || media?.media_type === 'anime') ? 'series' : 'kp'}
               data-id={media?.kinopoisk_id?.toString() || ''}
+              data-season={media && (media.media_type === 'tv' || media.media_type === 'anime') ? selectedSeason : undefined}
+              data-episodes={media && (media.media_type === 'tv' || media.media_type === 'anime') ? selectedEpisode : undefined}
+              data-design="1"
+            ></ins>
+          ) : activePlayer === 'vibix' && vibixEmbedData?.publisherId && vibixEmbedData?.videoId ? (
+            <ins 
+              ref={vibixRef}
+              className="rendex-player w-full h-full min-h-[370px]"
+              data-publisher-id={vibixEmbedData.publisherId}
+              data-type={vibixEmbedData.videoType || 'kp'}
+              data-id={vibixEmbedData.videoId}
               data-season={media && (media.media_type === 'tv' || media.media_type === 'anime') ? selectedSeason : undefined}
               data-episodes={media && (media.media_type === 'tv' || media.media_type === 'anime') ? selectedEpisode : undefined}
               data-design="1"

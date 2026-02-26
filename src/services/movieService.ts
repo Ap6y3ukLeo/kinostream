@@ -425,9 +425,18 @@ async function getVideocdnPlayerUrl(kpId: number): Promise<string | null> {
   return null;
 }
 
-// Get Vibix iframe URL using their API
-export async function getVibixPlayerUrl(kpId: number, season?: number, episode?: number): Promise<string | null> {
-  if (!kpId) return null;
+// Get Vibix embed data using their API
+export interface VibixEmbedData {
+  iframeUrl: string | null;
+  publisherId: string | null;
+  videoId: string | null;
+  videoType: string | null;
+}
+
+export async function getVibixEmbedData(kpId: number, season?: number, episode?: number): Promise<VibixEmbedData> {
+  const result: VibixEmbedData = { iframeUrl: null, publisherId: null, videoId: null, videoType: null };
+  
+  if (!kpId) return result;
   
   try {
     const url = new URL(`https://vibix.org/api/v1/publisher/videos/kp/${kpId}`);
@@ -444,28 +453,34 @@ export async function getVibixPlayerUrl(kpId: number, season?: number, episode?:
       const data = await response.json();
       console.log('Vibix response:', data);
       
-      // Try different possible field names for iframe URL
-      const iframeUrl = data.iframe_url || data.embed_url || data.url || data.player_url || data.src || data.embed;
-      if (iframeUrl) {
-        console.log('Found iframe URL:', iframeUrl);
-        // Don't add season/episode as query params - the player handles it internally
-        return iframeUrl;
-      } else {
-        console.log('Vibix response fields:', Object.keys(data));
-        // Log the full response for debugging
-        console.log('Full Vibix response:', JSON.stringify(data, null, 2));
+      // Get iframe URL
+      result.iframeUrl = data.iframe_url || data.embed_url || data.url || data.player_url || data.src || data.embed || null;
+      
+      // Parse embed_code to get publisher ID, type, and video ID
+      if (data.embed_code) {
+        const match = data.embed_code.match(/data-publisher-id="([^"]+)"\s+data-type="([^"]+)"\s+data-id="([^"]+)"/);
+        if (match) {
+          result.publisherId = match[1];
+          result.videoType = match[2];
+          result.videoId = match[3];
+        }
       }
+      
+      console.log('Vibix embed data:', result);
     } else {
       console.error('Vibix API error:', response.status, await response.text());
     }
   } catch (e) {
     console.error('Vibix error:', e);
   }
-  // Fallback: try direct iframe URL
-  if (season && episode) {
-    return `https://vibix.tv/embed/${kpId}?season=${season}&episode=${episode}`;
-  }
-  return `https://vibix.tv/embed/${kpId}`;
+  
+  return result;
+}
+
+// Legacy function - returns iframe URL only
+export async function getVibixPlayerUrl(kpId: number, season?: number, episode?: number): Promise<string | null> {
+  const embedData = await getVibixEmbedData(kpId, season, episode);
+  return embedData.iframeUrl;
 }
 
 // Legacy exports for backward compatibility
