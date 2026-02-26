@@ -439,6 +439,8 @@ export function Movie() {
               </span>
             )}
           </div>
+
+          <ins data-publisher-id="677077910" data-type="series" data-id="6384"></ins>
           
           <div className="flex flex-wrap gap-2">
             {PLAYERS.map((player) => {
