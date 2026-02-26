@@ -123,6 +123,7 @@ export function Movie() {
       // Vibix uses API with Bearer token
       try {
         const vibixUrl = await getVibixPlayerUrl(kpId, selectedSeason, selectedEpisode);
+        console.log('Vibix URL returned:', vibixUrl);
         if (vibixUrl) {
           return vibixUrl;
         }
@@ -146,6 +147,7 @@ export function Movie() {
       setLoadingPlayer(true);
       try {
         const url = await getPlayerUrl();
+        console.log('Player URL:', url);
         setPlayerUrl(url);
       } catch (error) {
         console.error('Error loading player URL:', error);
