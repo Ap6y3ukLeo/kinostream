@@ -51,30 +51,16 @@ export function Movie() {
   const [loadingPlayer, setLoadingPlayer] = useState(false);
   const rendexRef = React.useRef<HTMLModElement | null>(null);
 
-  // Render Rendex player when active
+  // Initialize Rendex SDK when switching to rendex player
   useEffect(() => {
-    if (activePlayer === 'rendex' && media && rendexRef.current) {
-      const kpId = media.kinopoisk_id;
-      const isSeries = media.media_type === 'tv' || media.media_type === 'anime';
-      
-      // Clear previous attributes
-      rendexRef.current.setAttribute('data-publisher-id', '677077910');
-      rendexRef.current.setAttribute('data-id', String(kpId));
-      
-      if (isSeries) {
-        rendexRef.current.setAttribute('data-type', 'series');
-        rendexRef.current.setAttribute('data-season', String(selectedSeason));
-        rendexRef.current.setAttribute('data-episodes', String(selectedEpisode));
-      } else {
-        rendexRef.current.setAttribute('data-type', 'kp');
-      }
-      
-      // Re-initialize Rendex SDK
+    if (activePlayer === 'rendex') {
       if ((window as any).rendex) {
-        (window as any).rendex.init();
+        setTimeout(() => {
+          (window as any).rendex.init();
+        }, 100);
       }
     }
-  }, [activePlayer, media, selectedSeason, selectedEpisode]);
+  }, [activePlayer, media?.kinopoisk_id]);
 
   const loadMedia = useCallback(async () => {
     if (id) {
@@ -466,6 +452,10 @@ export function Movie() {
               ref={rendexRef}
               className="rendex-player w-full h-full min-h-[370px]"
               data-publisher-id="677077910"
+              data-type={(media?.media_type === 'tv' || media?.media_type === 'anime') ? 'series' : 'kp'}
+              data-id={media?.kinopoisk_id?.toString() || ''}
+              data-season={media && (media.media_type === 'tv' || media.media_type === 'anime') ? selectedSeason : undefined}
+              data-episodes={media && (media.media_type === 'tv' || media.media_type === 'anime') ? selectedEpisode : undefined}
               data-design="1"
             ></ins>
           ) : playerUrl ? (
